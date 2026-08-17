@@ -78,7 +78,7 @@ The algorithms developed in this repository are optimized for low-latency physio
 ### Installation & Execution
 
 # 1. Clone the repository:
-git clone: [https://github.com/YourUsername/biomedical_signal_analysis.git](https://github.com/ali-xfactor/biomedical_signal_analysis)
+git clone: [https://github.com/ali-xfctor/biomedical_signal_analysis.git](https://github.com/ali-xfactor/biomedical_signal_analysis)
 
 # 2. Install dependencies:
 pip install numpy scipy matplotlib wfdb
