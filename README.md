@@ -8,7 +8,9 @@
 </div>
 
 ## 📑 Abstract
+
 This repository presents an end-to-end biomedical digital signal processing (DSP) pipeline for the extraction, conditioning, and clinical analysis of Electrocardiogram (ECG) data. The pipeline applies adaptive filtering to remove common artifacts, extracts R-peaks, and performs time-domain Heart Rate Variability (HRV) analysis. It was built as a learning project to explore the core techniques used in biomedical signal processing, with the long-term goal of applying these fundamentals to more advanced physiological monitoring systems.
+
 ---
 
 ## 🔬 Methodology & Architecture
