@@ -4,25 +4,27 @@
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/SciPy-8CAAE6?style=for-the-badge&logo=scipy&logoColor=white" alt="SciPy">
   <img src="https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white" alt="NumPy">
-  <img src="https://img.shields.io/badge/PhysioNet-MIT--BIH-red?style=for-the-badge" alt="MIT-BIH">
+  <img src="https://img.shields.io/badge/PhysioNet-MIT--BIH%20%7C%20Icentia11k-red?style=for-the-badge" alt="MIT-BIH & Icentia11k">
 </div>
 
 ## 📑 Abstract
-This repository presents a comprehensive, end-to-end biomedical digital signal processing (DSP) pipeline designed for the extraction, conditioning, and clinical analysis of Electrocardiogram (ECG) data. By mitigating electrical and physiological artifacts using advanced adaptive filtering techniques, the system accurately extracts R-peaks to perform time-domain Heart Rate Variability (HRV) analysis. This project serves as a foundational computational module for integration into bio-robotic monitoring systems and automated diagnostic software.
+
+This repository presents an end-to-end biomedical digital signal processing (DSP) pipeline for the extraction, conditioning, and clinical analysis of Electrocardiogram (ECG) data. The pipeline applies adaptive filtering to remove common artifacts, extracts R-peaks, performs time-domain Heart Rate Variability (HRV) analysis, and implements advanced ectopic beat detection (PVCs). It was built as a learning project to explore the core techniques used in biomedical signal processing, with the long-term goal of applying these fundamentals to more advanced physiological monitoring systems.
 
 ---
 
 ## 🔬 Methodology & Architecture
+The signal processing pipeline is organized into four sequential stages, each modularized in its own file:
 
-The signal processing architecture is designed to handle raw, noisy physiological data and transform it into actionable clinical metrics. 
+### 1. 01_biomedical_signal_analysis.py — Baseline Signal Exploration
+Data is sourced directly from the MIT-BIH Arrhythmia Database (sampled at 360 Hz). This stage isolates the raw signal, removes baseline wander (DC offset), and performs an initial, unfiltered R-peak detection to establish a reference point.
 
-### 1. Signal Acquisition & Preprocessing
-Data is sourced directly from the **MIT-BIH Arrhythmia Database** (sampled at 360 Hz). The initial phase involves isolating the signal from baseline wander (DC offset) to prepare for precise frequency-domain analysis.
-
-### 2. Spectral Analysis & Adaptive Filtering
-To ensure diagnostic integrity, the pipeline employs specialized filtering to surgically eliminate noise without altering the critical QRS morphology:
+### 2. 02_Filtered_ECG_Analysis.py — Spectral Analysis & Filtering
+To improve signal quality before peak detection, this stage applies two filters:
 * **Zero-Phase IIR Notch Filter:** Targets and attenuates 50 Hz powerline interference ($Q=30$).
-* **4th-Order Butterworth Low-Pass Filter:** Suppresses high-frequency physiological artifacts (e.g., EMG noise) with a cutoff frequency ($f_c$) of 30 Hz.
+* **4th-Order Butterworth Low-Pass Filter:** Suppresses high-frequency artifacts (e.g., muscle/EMG noise) with a cutoff frequency ($f_c$) of 30 Hz.
+
+R-peaks are then detected on the filtered signal using `scipy.signal.find_peaks` with adaptive height and distance thresholds derived from the signal's own statistics (median and percentile-based), rather than fixed hardcoded values.
 
 <div align="center">
   <img src="50hz.noise.png" alt="50 Hz Powerline Interference Mitigation" width="700">
@@ -36,57 +38,79 @@ To ensure diagnostic integrity, the pipeline employs specialized filtering to su
   <em>Figure 2: Signal conditioning utilizing a 4th-Order Butterworth Low-Pass filter to suppress high-frequency physiological artifacts (e.g., EMG noise) while preserving critical QRS morphology.</em>
 </div>
 
-### 3. Algorithmic Feature Extraction
-A dynamic, rule-based algorithm applies adaptive thresholding—calculated via statistical medians and 98th percentiles—to accurately detect ventricular depolarizations (R-peaks). The algorithm is highly resistant to T-wave interference and fluctuating voltage amplitudes.
-
 <div align="center">
   <img src="ecg-result.png" alt="Adaptive R-Peak Detection" width="800">
   <br>
-  <em>Figure 2: Filtered ECG signal showcasing automated R-peak detection (red markers) utilizing dynamic thresholding (green dashed line).</em>
+  <em>Figure 3: Filtered ECG signal showcasing automated R-peak detection (red markers) utilizing dynamic thresholding (green dashed line).</em>
 </div>
 
----
+### 3. 03_HRV_and_Arrhythmia_Flagging.py — HRV & Rule-Based Flagging
+Beyond R-peak detection, this stage computes R-R intervals and derives standard time-domain HRV metrics:
+* **SDNN** — Standard deviation of R-R intervals; reflects overall heart rate variability.
+* **RMSSD** — Root mean square of successive R-R differences; a common indicator of parasympathetic (vagal) activity.
+* **pNN50** — Percentage of successive R-R interval differences exceeding 50 ms.
 
-## 📊 Clinical Diagnostics & HRV Analysis
-
-Beyond raw signal processing, the pipeline computes critical physiological parameters to evaluate the Autonomic Nervous System (ANS) and flag potential arrhythmias (Bradycardia & Tachycardia).
-
-### Extracted HRV Metrics (Time-Domain):
-* **SDNN (Standard Deviation of NN intervals):** Quantifies overall heart rate variability and long-term autonomic regulation.
-* **RMSSD (Root Mean Square of Successive Differences):** Serves as a primary indicator of parasympathetic (vagal) tone.
-* **pNN50:** Evaluates the percentage of successive R-R interval differences exceeding 50 milliseconds.
+Average BPM is also compared against standard resting-heart-rate thresholds to flag the recording as consistent with bradycardia (<60 BPM) or tachycardia (>100 BPM). This is a simple rule-based classification of the dataset, not a clinical diagnostic tool.
 
 <div align="center">
   <img src="r-peak-hrv.png" alt="HRV Analysis Output" width="700">
   <br>
-  <em>Figure 3: Heart Rate Variability (HRV) metrics extraction and arrhythmia diagnostic flagging.</em>
+  <em>Figure 4: Heart Rate Variability (HRV) metrics extraction and arrhythmia diagnostic flagging.</em>
+</div>
+
+### 4. 04_PVC_Detection.py — Advanced Arrhythmia Detection & Synthetic Validation
+This newly integrated module focuses on identifying Premature Ventricular Contractions (PVCs) utilizing the **Icentia11k Database** (sampled at 250 Hz). The algorithm employs a dual-criteria validation system:
+1. **Temporal Analysis (R-R Disturbance):** Flags beats arriving significantly earlier than the patient's median R-R baseline (< 75%) and evaluates the presence of a compensatory pause.
+2. **Morphological Correlation:** Segments early candidates and computes a Pearson correlation coefficient against a dynamically generated "normal beat" template to isolate widened, distorted waveforms.
+
+**Synthetic Validation:** To rigorously validate the detector, the script injects a synthetic PVC waveform (a high-amplitude Gaussian pulse) into the physiological data. The entire pipeline is re-run to confirm the system's ability to blindly isolate the morphological abnormality.
+
+<div align="center">
+  <img src="PVC_DETICTION.png" alt="PVC Detection Validation" width="800">
+  <br>
+  <em>Figure 5: Synthetic Validation — The algorithm successfully detects R-peaks (green) and strictly isolates the synthetically injected ectopic beat (red dashed lines).</em>
 </div>
 
 ---
 
-## Applications in Telemedicine & Home Medical Robotics
+## ⚠️ Scope & Limitations
+This project was developed for learning and portfolio purposes. A few things worth noting:
+* Peak-detection thresholds and filter parameters were tuned on specific MIT-BIH and Icentia11k records and have not been validated across the full databases.
+* The bradycardia/tachycardia flagging is a simple threshold rule, not a validated diagnostic method.
+* This pipeline has not been tested for real-time / low-latency use and is not intended for clinical or medical-device applications in its current form.
+ 
+---
 
-The algorithms developed in this repository are optimized for low-latency physiological monitoring. The methodology lays the groundwork for real-time cardiac assessment modules in **Home Medical Robotics** and automated patient-care systems, where robust, autonomous signal interpretation is critical for remote diagnostics.
+## 🚀 Potential Future Directions
+The techniques implemented here — digital filtering, adaptive peak detection, HRV analysis, and PVC isolation — are foundational building blocks for more advanced physiological monitoring systems (e.g., wearable devices or home health-monitoring tools). Validating these algorithms against a broader set of records and optimizing the pipeline for continuous, real-time data streaming are natural next steps.
 
 ---
 
-## 💻 Technical Stack & Deployment
-
+## 💻 Technical Stack
 * **Language:** Python 3.x
-* **Core Libraries:** 'numpy' (matrix operations), 'scipy' (FFT, signal processing, adaptive peak detection), 'matplotlib' (clinical rendering), 'wfdb' (PhysioNet data parsing).
+* **Core Libraries:** `numpy` (array operations), `scipy` (FFT, signal filtering, peak detection), `matplotlib` (plotting), `wfdb` (reading PhysioNet data)
 
 ### Installation & Execution
 
+```bash
 # 1. Clone the repository:
-git clone: [https://github.com/ali-xfctor/biomedical_signal_analysis.git](https://github.com/ali-xfactor/biomedical_signal_analysis)
+git clone [https://github.com/ali-xfactor/biomedical_signal_analysis.git](https://github.com/ali-xfactor/biomedical_signal_analysis.git)
 
 # 2. Install dependencies:
 pip install numpy scipy matplotlib wfdb
 
-# 3. Download Dataset (e.g., Record 100 or 122) from PhysioNet and place in the root directory.
+# 3. Download the datasets:
+# - Download MIT-BIH records (e.g., 100 or 122) for Stages 1-3.
+# - Download Icentia11k records (e.g., p01000_s02) for Stage 4.
+# Ensure both .dat and .hea files are placed in the same directory as the scripts.
 
-# 4. Execute the analysis pipeline:
-     python ecg_analysis.py
+# 4. Run the pipeline:
+# Each stage is a standalone script:
+python 01_biomedical_signal_analysis.py
+python 02_Filtered_ECG_Analysis.py
+python 03_HRV_and_Arrhythmia_Flagging.py
+python 04_PVC_Detection.py
+```
 
 ---
 
@@ -98,6 +122,6 @@ pip install numpy scipy matplotlib wfdb
 **Focus: Biomedical Signal Processing & Autonomous Medical Robotics**
 
 ## 📚 Acknowledgments & Dataset Attribution
-This research relies on the **MIT-BIH Arrhythmia Database**, openly provided by **PhysioNet**. 
+This research relies on clinical data openly provided by PhysioNet, specifically utilizing the MIT-BIH Arrhythmia Database and the Icentia11k Database.
 
 Special thanks to the open-source community for maintaining the clinical data structures essential for engineering advancements.
