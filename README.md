@@ -71,7 +71,7 @@ This newly integrated module focuses on identifying Premature Ventricular Contra
   <em>Figure 5: Synthetic Validation — The algorithm successfully detects R-peaks (green) and strictly isolates the synthetically injected ectopic beat (red dashed lines).</em>
 </div>
 
-### 5. 05_new_file.py — Feature Extraction on MIT-BIH (Record 116)
+### 5. 05_feature_extraction.py — Feature Extraction on MIT-BIH (Record 116)
 This stage re-applies the PVC detection logic from Stage 4 to a second, independent clinical record (MIT-BIH record 116, sampled at 360 Hz) to test the detector's generalizability across datasets. The signal is bandpass-filtered (0.5–30 Hz), R-peaks are located with adaptive height/prominence thresholds, and each beat is scored against the same dual-criteria logic:
 * **Timing:** R-R interval falling below 75% of the patient's median R-R.
 * **Compensatory pause:** Sum of the surrounding R-R intervals approximating twice the median.
