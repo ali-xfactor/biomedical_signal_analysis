@@ -14,7 +14,7 @@ This repository presents an end-to-end biomedical digital signal processing (DSP
 ---
 
 ## 🔬 Methodology & Architecture
-The signal processing pipeline is organized into four sequential stages, each modularized in its own file:
+The signal processing pipeline is organized into six sequential stages, each modularized in its own file:
 
 ### 1. 01_biomedical_signal_analysis.py — Baseline Signal Exploration
 Data is sourced directly from the MIT-BIH Arrhythmia Database (sampled at 360 Hz). This stage isolates the raw signal, removes baseline wander (DC offset), and performs an initial, unfiltered R-peak detection to establish a reference point.
@@ -71,12 +71,28 @@ This newly integrated module focuses on identifying Premature Ventricular Contra
   <em>Figure 5: Synthetic Validation — The algorithm successfully detects R-peaks (green) and strictly isolates the synthetically injected ectopic beat (red dashed lines).</em>
 </div>
 
+### 5. 05_new_file.py — Feature Extraction on MIT-BIH (Record 116)
+This stage re-applies the PVC detection logic from Stage 4 to a second, independent clinical record (MIT-BIH record 116, sampled at 360 Hz) to test the detector's generalizability across datasets. The signal is bandpass-filtered (0.5–30 Hz), R-peaks are located with adaptive height/prominence thresholds, and each beat is scored against the same dual-criteria logic:
+* **Timing:** R-R interval falling below 75% of the patient's median R-R.
+* **Compensatory pause:** Sum of the surrounding R-R intervals approximating twice the median.
+* **Morphology:** Pearson correlation against a per-record "normal beat" template.
+
+Rather than only printing detections, this script exports every beat's features (`RR_PRE`, `RR_POST`, `CORR`, `COMPENSATORY`) and its resulting label to `ecg_features.csv`, turning the rule-based detector into a labeled dataset for supervised learning in the next stage.
+
+### 6. 06_model_training.py — Machine Learning Classification
+This stage moves from rule-based detection to a data-driven approach: a **Logistic Regression** classifier is trained on the feature table produced in Stage 5 to evaluate whether the hand-engineered features (R-R timing, compensatory pause, morphological correlation) are sufficient to separate PVC from normal beats.
+* Data is split 80/20 into training and test sets.
+* Model performance is reported via a **confusion matrix** and a full **classification report** (precision, recall, F1-score), since PVCs are a minority class and plain accuracy would be a misleading metric.
+
+This stage is exploratory — a first check on feature quality — rather than a tuned, production-ready classifier.
+
 ---
 
 ## ⚠️ Scope & Limitations
 This project was developed for learning and portfolio purposes. A few things worth noting:
 * Peak-detection thresholds and filter parameters were tuned on specific MIT-BIH and Icentia11k records and have not been validated across the full databases.
 * The bradycardia/tachycardia flagging is a simple threshold rule, not a validated diagnostic method.
+* The Stage 6 classifier is trained on a single record's features and has not been validated across patients — it is a proof of concept for the feature set, not a generalizable model.
 * This pipeline has not been tested for real-time / low-latency use and is not intended for clinical or medical-device applications in its current form.
  
 ---
@@ -88,7 +104,7 @@ The techniques implemented here — digital filtering, adaptive peak detection, 
 
 ## 💻 Technical Stack
 * **Language:** Python 3.x
-* **Core Libraries:** `numpy` (array operations), `scipy` (FFT, signal filtering, peak detection), `matplotlib` (plotting), `wfdb` (reading PhysioNet data)
+* **Core Libraries:** `numpy` (array operations), `scipy` (FFT, signal filtering, peak detection), `matplotlib` (plotting), `wfdb` (reading PhysioNet data), `pandas` (feature tables), `scikit-learn` (train/test split, Logistic Regression, evaluation metrics)
 
 ### Installation & Execution
 
@@ -97,11 +113,12 @@ The techniques implemented here — digital filtering, adaptive peak detection, 
 git clone [https://github.com/ali-xfactor/biomedical_signal_analysis.git](https://github.com/ali-xfactor/biomedical_signal_analysis.git)
 
 # 2. Install dependencies:
-pip install numpy scipy matplotlib wfdb
+pip install numpy scipy matplotlib wfdb pandas scikit-learn
 
 # 3. Download the datasets:
 # - Download MIT-BIH records (e.g., 100 or 122) for Stages 1-3.
 # - Download Icentia11k records (e.g., p01000_s02) for Stage 4.
+# - MIT-BIH record 116 for Stage 5 is fetched automatically from PhysioNet.
 # Ensure both .dat and .hea files are placed in the same directory as the scripts.
 
 # 4. Run the pipeline:
@@ -110,6 +127,8 @@ python 01_biomedical_signal_analysis.py
 python 02_Filtered_ECG_Analysis.py
 python 03_HRV_and_Arrhythmia_Flagging.py
 python 04_PVC_Detection.py
+python 05_new_file.py
+python 06_model_training.py
 ```
 
 ---
