@@ -80,11 +80,13 @@ This stage re-applies the PVC detection logic from Stage 4 to a second, independ
 Rather than only printing detections, this script exports every beat's features (`RR_PRE`, `RR_POST`, `CORR`, `COMPENSATORY`) and its resulting label to `ecg_features.csv`, turning the rule-based detector into a labeled dataset for supervised learning in the next stage.
 
 ### 6. 06_model_training.py — Machine Learning Classification
-This stage moves from rule-based detection to a data-driven approach: a **Logistic Regression** classifier is trained on the feature table produced in Stage 5 to evaluate whether the hand-engineered features (R-R timing, compensatory pause, morphological correlation) are sufficient to separate PVC from normal beats.
-* Data is split 80/20 into training and test sets.
-* Model performance is reported via a **confusion matrix** and a full **classification report** (precision, recall, F1-score), since PVCs are a minority class and plain accuracy would be a misleading metric.
+This stage moves from rule-based detection to a data-driven approach, comparing two classifiers on the feature table produced in Stage 5 to evaluate whether the hand-engineered features (R-R timing, compensatory pause, morphological correlation) are sufficient to separate PVC from normal beats.
+* **Logistic Regression** — a simple, interpretable linear baseline.
+* **Random Forest** (`class_weight='balanced'`) — a non-linear ensemble model better able to capture feature interactions, with class weighting used to compensate for the PVC/normal class imbalance.
+* Data is split 80/20 into training and test sets, and both models are evaluated with a **confusion matrix** and a full **classification report** (precision, recall, F1-score), since PVCs are a minority class and plain accuracy would be a misleading metric.
+* **Feature importance** from the Random Forest is also inspected to sanity-check which engineered features are actually driving the model's decisions.
 
-This stage is exploratory — a first check on feature quality — rather than a tuned, production-ready classifier.
+This stage is exploratory — a first comparison of modeling approaches and a check on feature quality — rather than a tuned, production-ready classifier.
 
 ---
 
@@ -104,7 +106,7 @@ The techniques implemented here — digital filtering, adaptive peak detection, 
 
 ## 💻 Technical Stack
 * **Language:** Python 3.x
-* **Core Libraries:** `numpy` (array operations), `scipy` (FFT, signal filtering, peak detection), `matplotlib` (plotting), `wfdb` (reading PhysioNet data), `pandas` (feature tables), `scikit-learn` (train/test split, Logistic Regression, evaluation metrics)
+* **Core Libraries:** `numpy` (array operations), `scipy` (FFT, signal filtering, peak detection), `matplotlib` (plotting), `wfdb` (reading PhysioNet data), `pandas` (feature tables), `scikit-learn` (train/test split, Logistic Regression, Random Forest, evaluation metrics)
 
 ### Installation & Execution
 
